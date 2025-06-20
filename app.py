@@ -1,4 +1,18 @@
 import streamlit as st
+import openai
+
+st.write("✅ App Loaded")  # debugging
+
+# Debug print to test if secret is present
+if "OPENAI_API_KEY" not in st.secrets:
+    st.error("❌ OPENAI_API_KEY not found in Streamlit secrets")
+else:
+    st.success("✅ API Key found!")
+
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+
+
+import streamlit as st
 
 st.title("✅ App Loaded")
 st.write("This is a debug test — if you're seeing this, the app is rendering!")
