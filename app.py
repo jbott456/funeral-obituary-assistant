@@ -1,3 +1,8 @@
+import streamlit as st
+
+st.title("✅ App Loaded")
+st.write("This is a debug test — if you're seeing this, the app is rendering!")
+
 Python
 import streamlit as st
 import openai
