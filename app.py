@@ -155,3 +155,22 @@ if submitted:
     else:
         with st.spinner("Generating obituary..."):
             data_input = {
+                "name": name,
+                "dob": dob,
+                "dod": dod,
+                "pob": pob,
+                "pod": pod,
+                "story": story,
+                "survivors": survivors,
+            }
+            obituary_text = generate_obituary(data_input)
+
+            # Upload to Airtable
+            upload_to_airtable(data_input, obituary_text)
+
+        st.subheader("Generated Obituary")
+        st.write(obituary_text)
+
+        pdf_base64 = create_pdf(obituary_text)
+        href = f'<a href="data:application/pdf;base64,{pdf_base64}" download="{name}_obituary.pdf">📄 Download PDF</a>'
+        st.markdown(href, unsafe_allow_html=True)
