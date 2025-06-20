@@ -1,5 +1,7 @@
 import streamlit as st
 import openai
+from fpdf import FPDF
+import base64
 
 st.write("✅ App Loaded")  # debugging
 
@@ -11,17 +13,18 @@ else:
 
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
+def create_pdf(text, filename="obituary.pdf"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_font("Arial", size=12)
+    for line in text.split("\n"):
+        pdf.multi_cell(0, 10, line)
+    pdf.output(filename)
 
-import streamlit as st
-
-st.title("✅ App Loaded")
-st.write("This is a debug test — if you're seeing this, the app is rendering!")
-
-import streamlit as st
-import openai
-
-# Set your OpenAI API key here or set environment variable OPENAI_API_KEY
-openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else ""
+    with open(filename, "rb") as f:
+        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+    return base64_pdf
 
 def generate_obituary(data):
     prompt = f"""
@@ -72,7 +75,10 @@ if submitted:
             })
         st.subheader("Generated Obituary")
         st.write(obituary_text)
-        st.download_button("Download as Text File", data=obituary_text, file_name=f"{name}_obituary.txt")
+
+        pdf_base64 = create_pdf(obituary_text)
+        href = f'<a href="data:application/pdf;base64,{pdf_base64}" download="{name}_obituary.pdf">\ud83d\udcc4 Download PDF</a>'
+        st.markdown(href, unsafe_allow_html=True)
 
 
 
