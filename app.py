@@ -6,7 +6,7 @@ import io
 from pdf2image import convert_from_bytes
 from google.cloud import vision
 from PIL import Image
-from pyairtable import Api, Base  # Airtable integration
+from pyairtable import Api  # Airtable integration
 
 # Page setup
 st.set_page_config(page_title="Funeral Obituary Assistant", page_icon="🕊️")
@@ -23,30 +23,32 @@ else:
 client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 vision_client = vision.ImageAnnotatorClient()
 
-# Airtable credentials
-AIRTABLE_PAT = st.secrets.get("AIRTABLE_PAT")
-AIRTABLE_BASE_ID = st.secrets.get("AIRTABLE_BASE_ID")
-AIRTABLE_TABLE_NAME = st.secrets.get("AIRTABLE_TABLE_NAME")
-
+# Airtable save function
 def upload_to_airtable(data, obituary_text):
-    if not AIRTABLE_PAT or not AIRTABLE_BASE_ID or not AIRTABLE_TABLE_NAME:
-        st.warning("Airtable credentials not set.")
-        return
-    api = Api(AIRTABLE_PAT)
-    base = Base(AIRTABLE_PAT, AIRTABLE_BASE_ID)
-    table = base.table(AIRTABLE_TABLE_NAME)
+    token = st.secrets.get("AIRTABLE_TOKEN")
+    base_id = st.secrets.get("AIRTABLE_BASE_ID")
+    table_name = st.secrets.get("AIRTABLE_TABLE_NAME")
 
-    record = {
-        "Name": data["name"],
-        "Date of Birth": data["dob"],
-        "Date of Death": data["dod"],
-        "Place of Birth": data["pob"],
-        "Place of Death": data["pod"],
-        "Bio": data["story"],
-        "Survivors": data["survivors"],
-        "Obituary Text": obituary_text,
-    }
-    table.create(record)
+    if not token or not base_id or not table_name:
+        st.warning("⚠️ Airtable credentials not set properly.")
+        return
+
+    try:
+        api = Api(token)
+        table = api.table(base_id, table_name)
+        table.create({
+            "Name": data["name"],
+            "Date of Birth": data["dob"],
+            "Date of Death": data["dod"],
+            "Place of Birth": data.get("pob", ""),
+            "Place of Death": data.get("pod", ""),
+            "Bio": data.get("story", ""),
+            "Survivors": data.get("survivors", ""),
+            "Obituary Text": obituary_text,
+        })
+        st.success("✅ Obituary saved to Airtable.")
+    except Exception as e:
+        st.error(f"❌ Airtable error: {e}")
 
 # PDF generation
 def create_pdf(text, filename="obituary.pdf"):
@@ -153,20 +155,3 @@ if submitted:
     else:
         with st.spinner("Generating obituary..."):
             data_input = {
-                "name": name,
-                "dob": dob,
-                "dod": dod,
-                "pob": pob,
-                "pod": pod,
-                "story": story,
-                "survivors": survivors,
-            }
-            obituary_text = generate_obituary(data_input)
-            upload_to_airtable(data_input, obituary_text)
-
-        st.subheader("Generated Obituary")
-        st.write(obituary_text)
-
-        pdf_base64 = create_pdf(obituary_text)
-        href = f'<a href="data:application/pdf;base64,{pdf_base64}" download="{name}_obituary.pdf">📄 Download PDF</a>'
-        st.markdown(href, unsafe_allow_html=True)
