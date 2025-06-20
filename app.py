@@ -88,3 +88,4 @@ def basic_parse_ocr_text(text):
         elif "survivors" in line_lower:
             data["survivors"] = line.split(":")[-1].strip()
         elif "bio" in line_lower or "story" in line_lower:
+            pass
