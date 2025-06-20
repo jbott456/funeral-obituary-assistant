@@ -11,7 +11,7 @@ if "OPENAI_API_KEY" not in st.secrets:
 else:
     st.success("✅ API Key found!")
 
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 def create_pdf(text, filename="obituary.pdf"):
     pdf = FPDF()
@@ -38,9 +38,8 @@ Place of Death: {data.get('pod', 'N/A')}
 Brief Life Story: {data.get('story', '')}
 Survivors: {data.get('survivors', '')}
 """
-
-    response = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
+    response = client.chat.completions.create(
+        model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=400,
         temperature=0.7,
@@ -77,8 +76,5 @@ if submitted:
         st.write(obituary_text)
 
         pdf_base64 = create_pdf(obituary_text)
-        href = f'<a href="data:application/pdf;base64,{pdf_base64}" download="{name}_obituary.pdf">\ud83d\udcc4 Download PDF</a>'
+        href = f'<a href="data:application/pdf;base64,{pdf_base64}" download="{name}_obituary.pdf">📄 Download PDF</a>'
         st.markdown(href, unsafe_allow_html=True)
-
-
-
