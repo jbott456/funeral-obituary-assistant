@@ -1,6 +1,7 @@
 streamlit
 openai
 fpdf
-google-cloud-vision
 pdf2image
 Pillow
+google-cloud-vision
+requests

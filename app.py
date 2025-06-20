@@ -6,6 +6,7 @@ import io
 from pdf2image import convert_from_bytes
 from google.cloud import vision
 from PIL import Image
+from pyairtable import Api, Base  # Airtable integration
 
 # Page setup
 st.set_page_config(page_title="Funeral Obituary Assistant", page_icon="🕊️")
@@ -21,6 +22,31 @@ else:
 # Initialize clients
 client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 vision_client = vision.ImageAnnotatorClient()
+
+# Airtable credentials
+AIRTABLE_PAT = st.secrets.get("AIRTABLE_PAT")
+AIRTABLE_BASE_ID = st.secrets.get("AIRTABLE_BASE_ID")
+AIRTABLE_TABLE_NAME = st.secrets.get("AIRTABLE_TABLE_NAME")
+
+def upload_to_airtable(data, obituary_text):
+    if not AIRTABLE_PAT or not AIRTABLE_BASE_ID or not AIRTABLE_TABLE_NAME:
+        st.warning("Airtable credentials not set.")
+        return
+    api = Api(AIRTABLE_PAT)
+    base = Base(AIRTABLE_PAT, AIRTABLE_BASE_ID)
+    table = base.table(AIRTABLE_TABLE_NAME)
+
+    record = {
+        "Name": data["name"],
+        "Date of Birth": data["dob"],
+        "Date of Death": data["dod"],
+        "Place of Birth": data["pob"],
+        "Place of Death": data["pod"],
+        "Bio": data["story"],
+        "Survivors": data["survivors"],
+        "Obituary Text": obituary_text,
+    }
+    table.create(record)
 
 # PDF generation
 def create_pdf(text, filename="obituary.pdf"):
@@ -126,7 +152,7 @@ if submitted:
         st.error("Please fill in at least Name, Date of Birth, and Date of Death.")
     else:
         with st.spinner("Generating obituary..."):
-            obituary_text = generate_obituary({
+            data_input = {
                 "name": name,
                 "dob": dob,
                 "dod": dod,
@@ -134,7 +160,10 @@ if submitted:
                 "pod": pod,
                 "story": story,
                 "survivors": survivors,
-            })
+            }
+            obituary_text = generate_obituary(data_input)
+            upload_to_airtable(data_input, obituary_text)
+
         st.subheader("Generated Obituary")
         st.write(obituary_text)
 
