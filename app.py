@@ -2,16 +2,23 @@ import streamlit as st
 import openai
 from fpdf import FPDF
 import base64
+import io
+from pdf2image import convert_from_bytes
+from google.cloud import vision
+from PIL import Image
 
+# Load API key
 st.write("✅ App Loaded")  # debugging
 
-# Debug print to test if secret is present
 if "OPENAI_API_KEY" not in st.secrets:
     st.error("❌ OPENAI_API_KEY not found in Streamlit secrets")
 else:
     st.success("✅ API Key found!")
 
 client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# Google Cloud Vision client (auto-auth from service account env var or secret)
+vision_client = vision.ImageAnnotatorClient()
 
 def create_pdf(text, filename="obituary.pdf"):
     pdf = FPDF()
@@ -46,35 +53,38 @@ Survivors: {data.get('survivors', '')}
     )
     return response.choices[0].message.content.strip()
 
-st.title("Funeral Home Obituary Assistant")
+def extract_text_from_pdf(uploaded_file):
+    pdf_bytes = uploaded_file.read()
+    images = convert_from_bytes(pdf_bytes, dpi=300)
+    first_image = images[0]
 
-with st.form("obituary_form"):
-    name = st.text_input("Full Name", max_chars=100)
-    dob = st.text_input("Date of Birth (e.g., Jan 1, 1940)")
-    dod = st.text_input("Date of Death (e.g., Jun 19, 2025)")
-    pob = st.text_input("Place of Birth (optional)")
-    pod = st.text_input("Place of Death (optional)")
-    story = st.text_area("Brief Life Story / Bio (optional)")
-    survivors = st.text_area("Survivors (optional)")
-    submitted = st.form_submit_button("Generate Obituary")
+    buf = io.BytesIO()
+    first_image.save(buf, format="JPEG")
+    image_bytes = buf.getvalue()
 
-if submitted:
-    if not name or not dob or not dod:
-        st.error("Please fill in at least Name, Date of Birth, and Date of Death.")
-    else:
-        with st.spinner("Generating obituary..."):
-            obituary_text = generate_obituary({
-                "name": name,
-                "dob": dob,
-                "dod": dod,
-                "pob": pob,
-                "pod": pod,
-                "story": story,
-                "survivors": survivors,
-            })
-        st.subheader("Generated Obituary")
-        st.write(obituary_text)
+    image = vision.Image(content=image_bytes)
+    response = vision_client.document_text_detection(image=image)
+    if response.error.message:
+        st.error(f"Google OCR Error: {response.error.message}")
+        return ""
 
-        pdf_base64 = create_pdf(obituary_text)
-        href = f'<a href="data:application/pdf;base64,{pdf_base64}" download="{name}_obituary.pdf">📄 Download PDF</a>'
-        st.markdown(href, unsafe_allow_html=True)
+    return response.full_text_annotation.text
+
+def basic_parse_ocr_text(text):
+    lines = text.split("\n")
+    data = {"name": "", "dob": "", "dod": "", "pob": "", "pod": "", "story": "", "survivors": ""}
+    for line in lines:
+        line_lower = line.lower()
+        if "name" in line_lower and not data["name"]:
+            data["name"] = line.split(":")[-1].strip()
+        elif "date of birth" in line_lower:
+            data["dob"] = line.split(":")[-1].strip()
+        elif "date of death" in line_lower:
+            data["dod"] = line.split(":")[-1].strip()
+        elif "place of birth" in line_lower:
+            data["pob"] = line.split(":")[-1].strip()
+        elif "place of death" in line_lower:
+            data["pod"] = line.split(":")[-1].strip()
+        elif "survivors" in line_lower:
+            data["survivors"] = line.split(":")[-1].strip()
+        elif "bio" in line_lower or "story" in line_lower:
