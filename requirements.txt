@@ -1,8 +1,6 @@
-cat > requirements.txt <<EOF
 streamlit
 openai
 fpdf
 google-cloud-vision
 pdf2image
 Pillow
-EOF
